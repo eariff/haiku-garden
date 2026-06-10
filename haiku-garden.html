@@ -338,6 +338,13 @@ body {
   padding: 3px 2px;
 }
 
+/* === RIGHT PAGE FOOTER === */
+.page-footer-right {
+  position: absolute;
+  bottom: 36px;
+  left: 32px;
+}
+
 /* === LINE SELECTION === */
 .haiku-line.selectable { cursor: pointer; border-radius: 3px; transition: background 0.15s; }
 .haiku-line.selectable:hover { background: rgba(139,99,67,0.05); }
@@ -351,6 +358,7 @@ body {
   .page-left { border-radius: 8px 8px 0 0; border-right: none; border-bottom: 1px solid rgba(139,99,67,0.15); }
   .page-right { border-radius: 0 0 8px 8px; }
   .instructions { position: static; margin-top: 20px; }
+  .page-footer-right { position: static; margin-top: 20px; }
   .completion-overlay { border-radius: 8px 8px 0 0; }
 }
 </style>
@@ -431,7 +439,6 @@ body {
     <div class="bank-controls">
       <button class="btn" onclick="refreshPool()">New Words</button>
       <button class="btn" id="undoBtn" onclick="undoRemove()" disabled style="opacity:0.4">Undo Remove</button>
-      <button class="btn" onclick="resetGame()">Start Over</button>
     </div>
 
     <div class="kigo-row">
@@ -450,6 +457,10 @@ body {
 
     <div class="word-bank" id="wordBank"></div>
     <div class="bank-status" id="bankStatus">Choose words for line I · 5 syllables</div>
+
+    <div class="page-footer-right">
+      <button class="btn" onclick="resetGame()">Start Over</button>
+    </div>
   </div>
 
 </div>
