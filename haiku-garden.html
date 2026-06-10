@@ -442,11 +442,11 @@ body {
     </div>
 
     <div class="kigo-row">
-      <label class="kigo-label active" id="kigoLabel">
-        <input type="checkbox" id="kigoCheck" checked onchange="toggleKigo()">
+      <label class="kigo-label" id="kigoLabel">
+        <input type="checkbox" id="kigoCheck" onchange="toggleKigo()">
         ✿ Seasonal Words
       </label>
-      <select id="seasonSelect" class="kigo-select" onchange="changeSeason(this.value)">
+      <select id="seasonSelect" class="kigo-select" style="display:none" onchange="changeSeason(this.value)">
         <option value="spring">Spring</option>
         <option value="summer">Summer</option>
         <option value="autumn">Autumn</option>
@@ -608,7 +608,7 @@ function getDefaultSeason() {
   }
 }
 
-let kigoOn = true;
+let kigoOn = false;
 let kigoSeason = getDefaultSeason();
 
 function toggleKigo() {
