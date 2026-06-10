@@ -443,7 +443,7 @@ body {
 
     <div class="kigo-row">
       <label class="kigo-label" id="kigoLabel">
-        <input type="checkbox" id="kigoCheck" onchange="toggleKigo()">
+        <input type="checkbox" id="kigoCheck" autocomplete="off" onchange="toggleKigo()">
         ✿ Seasonal Words
       </label>
       <select id="seasonSelect" class="kigo-select" style="display:none" onchange="changeSeason(this.value)">
@@ -1032,6 +1032,9 @@ function exportHaiku() {
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 setTheme('auto');
+document.getElementById('kigoCheck').checked = kigoOn;
+document.getElementById('kigoLabel').classList.toggle('active', kigoOn);
+document.getElementById('seasonSelect').style.display = kigoOn ? '' : 'none';
 document.getElementById('seasonSelect').value = kigoSeason;
 G.pool = buildPool(0);
 for (let i = 0; i < 3; i++) renderLine(i);
