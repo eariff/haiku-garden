@@ -735,49 +735,52 @@ function exportHaiku() {
   ctx.textBaseline = 'middle';
   [[63, 63], [S - 63, 63], [63, S - 63], [S - 63, S - 63]].forEach(([x, y]) => ctx.fillText('✦', x, y));
 
-  // ── LOGO  (255px from top) ──
+  // ── LOGO  (~286px from top) ──
+  // Haiku block is centered at y=551 (shifted 11px above canvas center to
+  // visually balance 45px Georgia's cap-height ~31px vs descender ~10px).
+  // Equal visual gaps of 48px between rules and haiku text edges.
   ctx.textBaseline = 'alphabetic';
   ctx.font = 'italic bold 33px Georgia';
   ctx.fillStyle = 'rgba(72,44,26,0.88)';
   ctx.textAlign = 'center';
-  ctx.fillText('Haiku Garden', S / 2, 255);
+  ctx.fillText('Haiku Garden', S / 2, 286);
 
   // Japanese subtitle  (+33px)
   ctx.font = '21px Georgia';
   ctx.fillStyle = 'rgba(92,61,46,0.32)';
-  ctx.fillText('俳句', S / 2, 288);
+  ctx.fillText('俳句', S / 2, 319);
 
-  // Top rule  (+39px) — 66px above first haiku line
+  // Top rule  (+39px) — 48px visual gap above first haiku line cap-height
   ctx.strokeStyle = 'rgba(92,61,46,0.2)';
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(S * 0.30, 327);
-  ctx.lineTo(S * 0.70, 327);
+  ctx.moveTo(S * 0.30, 358);
+  ctx.lineTo(S * 0.70, 358);
   ctx.stroke();
 
-  // ── HAIKU LINES (centered at S/2=540, 147px apart) ──
+  // ── HAIKU LINES (visual center at 540, baseline center at 551, 114px apart) ──
   const lines = G.placed.map(ln => ln.map(w => w.word).join(' '));
   ctx.font = 'italic 45px Georgia';
   ctx.fillStyle = '#3a2618';
-  [393, 540, 687].forEach((y, i) => ctx.fillText(lines[i], S / 2, y));
+  [437, 551, 665].forEach((y, i) => ctx.fillText(lines[i], S / 2, y));
 
-  // Bottom rule  (66px below last haiku line)
+  // Bottom rule  (48px visual gap below last haiku line descender)
   ctx.strokeStyle = 'rgba(92,61,46,0.18)';
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(S * 0.30, 753);
-  ctx.lineTo(S * 0.70, 753);
+  ctx.moveTo(S * 0.30, 723);
+  ctx.lineTo(S * 0.70, 723);
   ctx.stroke();
 
   // Fleuron  (+39px, mirrors 俳句 spacing)
   ctx.font = '27px Georgia';
   ctx.fillStyle = 'rgba(92,61,46,0.26)';
-  ctx.fillText('❧', S / 2, 792);
+  ctx.fillText('❧', S / 2, 762);
 
-  // ── URL  (+33px, mirrors logo spacing — 255px from bottom) ──
+  // ── URL  (+33px, mirrors logo spacing — ~285px from bottom) ──
   ctx.font = 'italic 23px Georgia';
   ctx.fillStyle = 'rgba(72,44,26,0.70)';
-  ctx.fillText('haikugarden.app', S / 2, 825);
+  ctx.fillText('haikugarden.app', S / 2, 795);
 
   c.toBlob(blob => {
     const url = URL.createObjectURL(blob);
