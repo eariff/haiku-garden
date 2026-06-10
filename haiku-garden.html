@@ -151,8 +151,18 @@ body {
 }
 .drop-zone.current { border-bottom-color: rgba(139,99,67,0.4); }
 .drop-zone.drag-over { background: rgba(139,99,67,0.07); border-bottom-color: #a07850; }
+.drop-zone.drag-over .drop-placeholder { display: none; }
 .drop-zone.locked { opacity: 0.38; pointer-events: none; }
 .drop-zone.done { border-bottom-color: rgba(80,130,80,0.45); }
+
+.drop-caret {
+  width: 2px;
+  height: 28px;
+  background: #a07850;
+  border-radius: 1px;
+  pointer-events: none;
+  flex-shrink: 0;
+}
 
 .drop-placeholder {
   font-size: 12px;
@@ -496,7 +506,7 @@ const WORDS = {
 
 // ─── GAME STATE ───────────────────────────────────────────────────────────────
 const TARGETS = [5, 7, 5];
-let G = { line: 0, placed: [[], [], []], used: [0, 0, 0], pool: [], done: false };
+let G = { line: 0, placed: [[], [], []], used: [0, 0, 0], pool: [], done: false, unlocked: [true, false, false] };
 
 function shuffle(arr) {
   const a = [...arr];
@@ -543,14 +553,14 @@ function renderLine(li) {
     const ph = document.createElement('span');
     ph.className = 'drop-placeholder';
     if (li === G.line) ph.textContent = 'drag words here…';
-    else if (li > G.line) ph.textContent = `finish line ${['I','II','III'][li - 1]} first…`;
+    else if (!G.unlocked[li]) ph.textContent = `finish line ${['I','II','III'][li - 1]} first…`;
     dz.appendChild(ph);
   } else {
     G.placed[li].forEach((item, idx) => {
       const chip = document.createElement('div');
       chip.className = 'chip-placed';
       chip.innerHTML = `${item.word}<span class="chip-syl">${item.syl}</span>`;
-      if (li === G.line) { chip.title = 'Click to remove'; chip.addEventListener('click', () => removeWord(li, idx)); }
+      if (G.unlocked[li] && !G.done) { chip.title = 'Click to remove'; chip.addEventListener('click', () => removeWord(li, idx)); }
       dz.appendChild(chip);
     });
   }
@@ -585,10 +595,14 @@ function renderBank() {
 }
 
 // ─── ACTIONS ─────────────────────────────────────────────────────────────────
-function placeWord(item) {
+function placeWord(item, insertIdx) {
   if (G.done) return;
   if (item.syl > TARGETS[G.line] - G.used[G.line]) return;
-  G.placed[G.line].push(item);
+  if (insertIdx !== undefined && insertIdx < G.placed[G.line].length) {
+    G.placed[G.line].splice(insertIdx, 0, item);
+  } else {
+    G.placed[G.line].push(item);
+  }
   G.used[G.line] += item.syl;
   const idx = G.pool.findIndex(w => w.word === item.word);
   if (idx !== -1) G.pool.splice(idx, 1);
@@ -597,12 +611,19 @@ function placeWord(item) {
 }
 
 function removeWord(li, idx) {
-  if (li !== G.line) return;
   const item = G.placed[li][idx];
   G.placed[li].splice(idx, 1);
   G.used[li] -= item.syl;
-  G.pool = shuffle([...G.pool, item]);
-  renderLine(li);
+  if (li !== G.line) {
+    document.getElementById('dz-' + G.line).classList.remove('current');
+    document.getElementById('dz-' + li).classList.remove('done');
+    document.getElementById('dz-' + li).classList.add('current');
+    G.line = li;
+    G.pool = buildPool(li);
+  } else {
+    G.pool = shuffle([...G.pool, item]);
+  }
+  for (let i = 0; i < 3; i++) renderLine(i);
   renderBank();
 }
 
@@ -612,6 +633,7 @@ function advanceLine() {
   dz.classList.add('done');
   if (G.line < 2) {
     G.line++;
+    G.unlocked[G.line] = true;
     const next = document.getElementById('dz-' + G.line);
     next.classList.remove('locked');
     next.classList.add('current');
@@ -634,7 +656,7 @@ function refreshPool() {
 }
 
 function resetGame() {
-  G = { line: 0, placed: [[], [], []], used: [0, 0, 0], pool: buildPool(0), done: false };
+  G = { line: 0, placed: [[], [], []], used: [0, 0, 0], pool: buildPool(0), done: false, unlocked: [true, false, false] };
   for (let i = 0; i < 3; i++) {
     document.getElementById('dz-' + i).className = 'drop-zone' + (i === 0 ? ' current' : ' locked');
   }
@@ -643,16 +665,53 @@ function resetGame() {
   renderBank();
 }
 
+function getDropIndex(dz, clientX) {
+  const chips = [...dz.querySelectorAll('.chip-placed')];
+  for (let i = 0; i < chips.length; i++) {
+    const rect = chips[i].getBoundingClientRect();
+    if (clientX < rect.left + rect.width / 2) return i;
+  }
+  return chips.length;
+}
+
+function updateDropCaret(dz, clientX) {
+  const existing = dz.querySelector('.drop-caret');
+  if (existing) existing.remove();
+  const chips = [...dz.querySelectorAll('.chip-placed')];
+  const caret = document.createElement('div');
+  caret.className = 'drop-caret';
+  let insertBefore = null;
+  for (const chip of chips) {
+    const rect = chip.getBoundingClientRect();
+    if (clientX < rect.left + rect.width / 2) { insertBefore = chip; break; }
+  }
+  insertBefore ? dz.insertBefore(caret, insertBefore) : dz.appendChild(caret);
+}
+
 function setupDropZones() {
   for (let i = 0; i < 3; i++) {
     const dz = document.getElementById('dz-' + i);
-    dz.addEventListener('dragover', e => { if (i !== G.line) return; e.preventDefault(); dz.classList.add('drag-over'); });
-    dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+    dz.addEventListener('dragover', e => {
+      if (i !== G.line) return;
+      e.preventDefault();
+      dz.classList.add('drag-over');
+      updateDropCaret(dz, e.clientX);
+    });
+    dz.addEventListener('dragleave', e => {
+      if (!dz.contains(e.relatedTarget)) {
+        dz.classList.remove('drag-over');
+        const caret = dz.querySelector('.drop-caret');
+        if (caret) caret.remove();
+      }
+    });
     dz.addEventListener('drop', e => {
-      e.preventDefault(); dz.classList.remove('drag-over');
+      e.preventDefault();
+      dz.classList.remove('drag-over');
+      const caret = dz.querySelector('.drop-caret');
+      if (caret) caret.remove();
       if (i !== G.line) return;
       const item = G.pool.find(w => w.word === e.dataTransfer.getData('text/plain'));
-      if (item) placeWord(item);
+      if (item) placeWord(item, getDropIndex(dz, e.clientX));
     });
   }
 }
