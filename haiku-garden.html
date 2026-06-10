@@ -189,6 +189,33 @@ body {
 
 .chip-syl { font-size: 9px; color: rgba(92,61,46,0.38); font-style: italic; padding-left: 1px; }
 
+/* Kigo (seasonal) chips */
+.chip.kigo                { background: #f2f7ec; border-color: rgba(80,110,50,0.32); border-bottom-color: rgba(80,110,50,0.22); }
+.chip.kigo[data-syl="2"] { background: #edf3e5; }
+.chip.kigo[data-syl="3"] { background: #e5ecda; }
+.chip.kigo[data-syl="4"] { background: #dce5ce; }
+.chip.kigo .chip-syl      { color: rgba(60,90,30,0.5); }
+
+/* Kigo controls row */
+.kigo-row { display: flex; align-items: center; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+.kigo-label {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 12px;
+  border: 1px solid rgba(92,61,46,0.3); border-radius: 2px;
+  font-family: Georgia, serif; font-size: 11px; letter-spacing: 0.5px;
+  color: #5c3d2e; cursor: pointer; user-select: none;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.kigo-label input { display: none; }
+.kigo-label.active { background: rgba(80,110,50,0.1); border-color: rgba(80,110,50,0.45); color: #3d5a20; }
+.kigo-select {
+  padding: 5px 10px;
+  background: transparent; border: 1px solid rgba(92,61,46,0.3); border-radius: 2px;
+  font-family: Georgia, serif; font-size: 11px; letter-spacing: 0.5px;
+  color: #5c3d2e; cursor: pointer;
+  transition: border-color 0.12s;
+}
+
 .chip-placed {
   display: inline-flex;
   align-items: center;
@@ -401,6 +428,20 @@ body {
       <button class="btn" onclick="resetGame()">Start Over</button>
     </div>
 
+    <div class="kigo-row">
+      <label class="kigo-label active" id="kigoLabel">
+        <input type="checkbox" id="kigoCheck" checked onchange="toggleKigo()">
+        ✿ Seasonal Words
+      </label>
+      <select id="seasonSelect" class="kigo-select" onchange="changeSeason(this.value)">
+        <option value="spring">Spring</option>
+        <option value="summer">Summer</option>
+        <option value="autumn">Autumn</option>
+        <option value="winter">Winter</option>
+        <option value="newyear">New Year's</option>
+      </select>
+    </div>
+
     <div class="word-bank" id="wordBank"></div>
     <div class="bank-status" id="bankStatus">Choose words for line I · 5 syllables</div>
   </div>
@@ -494,6 +535,69 @@ const WORDS = {
   ]
 };
 
+// ─── KIGO (SEASONAL WORDS) ────────────────────────────────────────────────────
+// Source: Yuki Teikei Haiku Society season-word list (yths.org)
+const KIGO = {
+  spring: {
+    1: ['bee', 'frog', 'thaw', 'nest', 'crane', 'plum'],
+    2: ['robin', 'crocus', 'tulip', 'pansy', 'swallow', 'hawthorn', 'kitten',
+        'plum tree', 'spring rain', 'spring moon', 'spring breeze', 'new grass'],
+    3: ['butterfly', 'blossoming', 'equinox'],
+    4: ['cherry blossoms', 'pussy willows', 'wisteria', 'forsythia', 'awakening']
+  },
+  summer: {
+    1: ['heat', 'drought', 'fan', 'sweat'],
+    2: ['lotus', 'iris', 'rainbow', 'fireworks', 'treetop', 'moonrise',
+        'heron', 'tidepool', 'sea glass', 'monsoon'],
+    3: ['cicada', 'sunflower', 'waterfall', 'thunderstorm', 'midsummer'],
+    4: ['hydrangea']
+  },
+  autumn: {
+    1: ['chill', 'geese'],
+    2: ['harvest', 'acorn', 'mushroom', 'scarecrow', 'pumpkin', 'chestnut', 'vineyard'],
+    3: ['persimmon', 'marigold', 'maple leaf', 'harvest moon', 'autumn leaves', 'departure'],
+    4: ['chrysanthemum', 'morning glory']
+  },
+  winter: {
+    1: ['sleet', 'owl'],
+    2: ['solstice', 'sparrow', 'holly', 'cabin', 'north wind', 'cold rain', 'bare tree', 'pine bough'],
+    3: ['icicle', 'evergreen', 'December', 'winter moon', 'hibernates'],
+    4: ['hibernation']
+  },
+  newyear: {
+    1: ['hope', 'fresh'],
+    2: ['new year', 'first dream', 'fresh start', 'promise'],
+    3: ['beginning', 'renewal', 'reflection'],
+    4: ['celebration', 'resolution']
+  }
+};
+
+function getDefaultSeason() {
+  const m = new Date().getMonth() + 1, d = new Date().getDate();
+  if (m === 1 && d <= 7) return 'newyear';
+  if (m === 12 || m <= 2) return 'winter';
+  if (m <= 5) return 'spring';
+  if (m <= 8) return 'summer';
+  return 'autumn';
+}
+
+let kigoOn = true;
+let kigoSeason = getDefaultSeason();
+
+function toggleKigo() {
+  kigoOn = document.getElementById('kigoCheck').checked;
+  document.getElementById('kigoLabel').classList.toggle('active', kigoOn);
+  document.getElementById('seasonSelect').style.display = kigoOn ? '' : 'none';
+  G.pool = buildPool(G.line);
+  renderBank();
+}
+
+function changeSeason(val) {
+  kigoSeason = val;
+  G.pool = buildPool(G.line);
+  renderBank();
+}
+
 // ─── GAME STATE ───────────────────────────────────────────────────────────────
 const TARGETS = [5, 7, 5];
 let G = { line: 0, placed: [[], [], []], used: [0, 0, 0], pool: [], done: false };
@@ -522,6 +626,14 @@ function buildPool(lineIdx) {
   take(WORDS[2], 6).forEach(w => { inPool.add(w); pool.push({word: w, syl: 2}); });
   if (TARGETS[lineIdx] >= 3) take(WORDS[3], 3).forEach(w => { inPool.add(w); pool.push({word: w, syl: 3}); });
   if (TARGETS[lineIdx] >= 4 && Math.random() > 0.35) take(WORDS[4], 1).forEach(w => { inPool.add(w); pool.push({word: w, syl: 4}); });
+  if (kigoOn && KIGO[kigoSeason]) {
+    const kg = KIGO[kigoSeason];
+    [1, 2, 3, 4].forEach(syl => {
+      if (kg[syl] && kg[syl].length) {
+        take(kg[syl], syl <= 2 ? 3 : 2).forEach(w => { inPool.add(w); pool.push({word: w, syl, kigo: true}); });
+      }
+    });
+  }
   return shuffle(pool);
 }
 
@@ -565,7 +677,7 @@ function renderBank() {
   const rem = TARGETS[G.line] - G.used[G.line];
   G.pool.filter(w => w.syl <= rem).forEach(item => {
     const chip = document.createElement('div');
-    chip.className = 'chip';
+    chip.className = 'chip' + (item.kigo ? ' kigo' : '');
     chip.draggable = true;
     chip.dataset.syl = item.syl;
     chip.innerHTML = `${item.word}<span class="chip-syl">${item.syl}</span>`;
@@ -794,6 +906,7 @@ function exportHaiku() {
 
 // ─── INIT ─────────────────────────────────────────────────────────────────────
 setTheme('auto');
+document.getElementById('seasonSelect').value = kigoSeason;
 G.pool = buildPool(0);
 for (let i = 0; i < 3; i++) renderLine(i);
 renderBank();
