@@ -411,6 +411,10 @@ body {
       <button class="btn" onclick="resetGame()">Start Over</button>
     </div>
 
+    <div id="undoBar" style="display:none; margin-bottom:12px;">
+      <button class="btn" onclick="undoRemove()">↩ Undo</button>
+    </div>
+
     <div class="word-bank" id="wordBank"></div>
     <div class="bank-status" id="bankStatus">Choose words for line I · 5 syllables</div>
   </div>
@@ -506,7 +510,7 @@ const WORDS = {
 
 // ─── GAME STATE ───────────────────────────────────────────────────────────────
 const TARGETS = [5, 7, 5];
-let G = { line: 0, placed: [[], [], []], used: [0, 0, 0], pool: [], done: false, unlocked: [true, false, false] };
+let G = { line: 0, placed: [[], [], []], used: [0, 0, 0], pool: [], done: false, unlocked: [true, false, false], lastRemoved: null };
 
 function shuffle(arr) {
   const a = [...arr];
@@ -606,6 +610,8 @@ function placeWord(item, insertIdx) {
   G.used[G.line] += item.syl;
   const idx = G.pool.findIndex(w => w.word === item.word);
   if (idx !== -1) G.pool.splice(idx, 1);
+  G.lastRemoved = null;
+  document.getElementById('undoBar').style.display = 'none';
   renderLine(G.line);
   if (G.used[G.line] === TARGETS[G.line]) advanceLine(); else renderBank();
 }
@@ -614,6 +620,8 @@ function removeWord(li, idx) {
   const item = G.placed[li][idx];
   G.placed[li].splice(idx, 1);
   G.used[li] -= item.syl;
+  G.lastRemoved = { li, idx, item };
+  document.getElementById('undoBar').style.display = '';
   if (li !== G.line) {
     document.getElementById('dz-' + G.line).classList.remove('current');
     document.getElementById('dz-' + li).classList.remove('done');
@@ -625,6 +633,24 @@ function removeWord(li, idx) {
   }
   for (let i = 0; i < 3; i++) renderLine(i);
   renderBank();
+}
+
+function undoRemove() {
+  if (!G.lastRemoved) return;
+  const { li, idx, item } = G.lastRemoved;
+  G.lastRemoved = null;
+  document.getElementById('undoBar').style.display = 'none';
+  const poolIdx = G.pool.findIndex(w => w.word === item.word);
+  if (poolIdx !== -1) G.pool.splice(poolIdx, 1);
+  G.placed[li].splice(idx, 0, item);
+  G.used[li] += item.syl;
+  if (G.used[li] === TARGETS[li] && li === G.line) {
+    renderLine(li);
+    advanceLine();
+  } else {
+    for (let i = 0; i < 3; i++) renderLine(i);
+    renderBank();
+  }
 }
 
 function advanceLine() {
@@ -656,7 +682,8 @@ function refreshPool() {
 }
 
 function resetGame() {
-  G = { line: 0, placed: [[], [], []], used: [0, 0, 0], pool: buildPool(0), done: false, unlocked: [true, false, false] };
+  G = { line: 0, placed: [[], [], []], used: [0, 0, 0], pool: buildPool(0), done: false, unlocked: [true, false, false], lastRemoved: null };
+  document.getElementById('undoBar').style.display = 'none';
   for (let i = 0; i < 3; i++) {
     document.getElementById('dz-' + i).className = 'drop-zone' + (i === 0 ? ' current' : ' locked');
   }
