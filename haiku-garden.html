@@ -338,6 +338,11 @@ body {
   padding: 3px 2px;
 }
 
+/* === LINE SELECTION === */
+.haiku-line.selectable { cursor: pointer; border-radius: 3px; transition: background 0.15s; }
+.haiku-line.selectable:hover { background: rgba(139,99,67,0.05); }
+.haiku-line.active .line-label { color: rgba(92,61,46,0.7); }
+
 /* === RESPONSIVE === */
 @media (max-width: 620px) {
   .book { flex-direction: column; border-radius: 8px; }
@@ -362,7 +367,7 @@ body {
     </div>
 
     <div class="haiku-area" id="haikuArea">
-      <div class="haiku-line">
+      <div class="haiku-line active" id="hl-0">
         <div class="line-meta">
           <span class="line-label">Line I</span>
           <div class="dots" id="dots-0"></div>
@@ -373,7 +378,7 @@ body {
         </div>
       </div>
 
-      <div class="haiku-line">
+      <div class="haiku-line" id="hl-1">
         <div class="line-meta">
           <span class="line-label">Line II</span>
           <div class="dots" id="dots-1"></div>
@@ -384,7 +389,7 @@ body {
         </div>
       </div>
 
-      <div class="haiku-line">
+      <div class="haiku-line" id="hl-2">
         <div class="line-meta">
           <span class="line-label">Line III</span>
           <div class="dots" id="dots-2"></div>
@@ -398,7 +403,7 @@ body {
 
     <div class="instructions">
       <p>Drag words onto a line · click a placed word to remove it</p>
-      <p>5 syllables · 7 syllables · 5 syllables</p>
+      <p>Click any line to switch · 5 · 7 · 5 syllables</p>
     </div>
 
     <div class="completion-overlay" id="compOverlay">
@@ -425,6 +430,7 @@ body {
 
     <div class="bank-controls">
       <button class="btn" onclick="refreshPool()">New Words</button>
+      <button class="btn" id="undoBtn" onclick="undoRemove()" disabled style="opacity:0.4">Undo Remove</button>
       <button class="btn" onclick="resetGame()">Start Over</button>
     </div>
 
@@ -610,7 +616,7 @@ function changeSeason(val) {
 
 // ─── GAME STATE ───────────────────────────────────────────────────────────────
 const TARGETS = [5, 7, 5];
-let G = { line: 0, placed: [[], [], []], used: [0, 0, 0], pool: [], done: false };
+let G = { line: 0, placed: [[], [], []], used: [0, 0, 0], pool: [], done: false, unlocked: [true, false, false], undoStack: [] };
 
 function shuffle(arr) {
   const a = [...arr];
@@ -661,18 +667,20 @@ function renderDots(li) {
 function renderLine(li) {
   const dz = document.getElementById('dz-' + li);
   dz.innerHTML = '';
+  const accessible = G.unlocked[li] && !G.done;
   if (G.placed[li].length === 0) {
     const ph = document.createElement('span');
     ph.className = 'drop-placeholder';
     if (li === G.line) ph.textContent = 'drag words here…';
-    else if (li > G.line) ph.textContent = `finish line ${['I','II','III'][li - 1]} first…`;
+    else if (!G.unlocked[li]) ph.textContent = `finish line ${['I','II','III'][li - 1]} first…`;
+    else ph.textContent = 'click to work on this line…';
     dz.appendChild(ph);
   } else {
     G.placed[li].forEach((item, idx) => {
       const chip = document.createElement('div');
       chip.className = 'chip-placed';
       chip.innerHTML = `${item.word}<span class="chip-syl">${item.syl}</span>`;
-      if (li === G.line) { chip.title = 'Click to remove'; chip.addEventListener('click', () => removeWord(li, idx)); }
+      if (accessible) { chip.title = 'Click to remove'; chip.addEventListener('click', () => removeWord(li, idx)); }
       dz.appendChild(chip);
     });
   }
@@ -699,11 +707,31 @@ function renderBank() {
   if (bank.children.length === 0) {
     const msg = document.createElement('div');
     msg.style.cssText = 'font-size:12px;color:rgba(92,61,46,0.5);font-style:italic;';
-    msg.textContent = 'No words fit — remove a word to continue.';
+    msg.textContent = rem === 0 ? 'Line complete — remove a word or select another line.' : 'No words fit — remove a word to continue.';
     bank.appendChild(msg);
   }
   const remN = TARGETS[G.line] - G.used[G.line];
   document.getElementById('bankStatus').textContent = `Line ${['I','II','III'][G.line]} · ${remN} syllable${remN !== 1 ? 's' : ''} remaining`;
+}
+
+function refreshLineClasses() {
+  for (let i = 0; i < 3; i++) {
+    const dz = document.getElementById('dz-' + i);
+    const hl = document.getElementById('hl-' + i);
+    dz.className = 'drop-zone';
+    hl.className = 'haiku-line';
+    if (!G.unlocked[i]) {
+      dz.classList.add('locked');
+    } else if (G.done) {
+      if (G.used[i] === TARGETS[i]) dz.classList.add('done');
+    } else if (i === G.line) {
+      dz.classList.add('current');
+      hl.classList.add('active');
+    } else {
+      hl.classList.add('selectable');
+      if (G.used[i] === TARGETS[i]) dz.classList.add('done');
+    }
+  }
 }
 
 // ─── ACTIONS ─────────────────────────────────────────────────────────────────
@@ -719,34 +747,103 @@ function placeWord(item) {
 }
 
 function removeWord(li, idx) {
-  if (li !== G.line) return;
   const item = G.placed[li][idx];
   G.placed[li].splice(idx, 1);
   G.used[li] -= item.syl;
-  G.pool = shuffle([...G.pool, item]);
-  renderLine(li);
+  G.undoStack.push({ li, idx, item });
+
+  if (li !== G.line) {
+    G.line = li;
+    G.pool = buildPool(li);
+    refreshLineClasses();
+  } else {
+    G.pool = shuffle([...G.pool, item]);
+  }
+
+  for (let i = 0; i < 3; i++) renderLine(i);
+  renderBank();
+  updateUndoButton();
+}
+
+function selectLine(li) {
+  if (!G.unlocked[li] || G.done || li === G.line) return;
+  G.line = li;
+  G.pool = buildPool(li);
+  refreshLineClasses();
+  for (let i = 0; i < 3; i++) renderLine(i);
   renderBank();
 }
 
+function findNextUnfinished() {
+  for (let i = G.line + 1; i < 3; i++) { if (G.used[i] < TARGETS[i]) return i; }
+  for (let i = 0; i < G.line; i++) { if (G.used[i] < TARGETS[i]) return i; }
+  return -1;
+}
+
 function advanceLine() {
-  const dz = document.getElementById('dz-' + G.line);
-  dz.classList.remove('current');
-  dz.classList.add('done');
-  if (G.line < 2) {
-    G.line++;
-    const next = document.getElementById('dz-' + G.line);
-    next.classList.remove('locked');
-    next.classList.add('current');
-    G.pool = buildPool(G.line);
-    renderLine(G.line);
-    renderBank();
-  } else {
+  if (G.used.every((u, i) => u === TARGETS[i])) {
     G.done = true;
     const lines = G.placed.map(ln => ln.map(w => w.word).join(' '));
     document.getElementById('compText').textContent = lines.join('\n');
     document.getElementById('compOverlay').classList.add('show');
     document.getElementById('bankStatus').textContent = '✦ Haiku complete ✦';
+    refreshLineClasses();
+    for (let i = 0; i < 3; i++) renderLine(i);
+    return;
   }
+  const nextLine = findNextUnfinished();
+  if (nextLine !== -1) {
+    G.unlocked[nextLine] = true;
+    G.line = nextLine;
+    G.pool = buildPool(nextLine);
+    refreshLineClasses();
+    renderLine(nextLine);
+    renderBank();
+  }
+}
+
+function undoRemove() {
+  if (G.undoStack.length === 0 || G.done) return;
+  const { li, idx, item } = G.undoStack[G.undoStack.length - 1];
+  if (G.used[li] + item.syl > TARGETS[li]) return;
+  G.undoStack.pop();
+
+  const poolIdx = G.pool.findIndex(w => w.word === item.word);
+  if (poolIdx !== -1) G.pool.splice(poolIdx, 1);
+  G.placed[li].splice(idx, 0, item);
+  G.used[li] += item.syl;
+
+  if (G.used[li] === TARGETS[li] && li === G.line) {
+    const nextLine = findNextUnfinished();
+    if (nextLine === -1) {
+      G.done = true;
+      const lines = G.placed.map(ln => ln.map(w => w.word).join(' '));
+      document.getElementById('compText').textContent = lines.join('\n');
+      document.getElementById('compOverlay').classList.add('show');
+      document.getElementById('bankStatus').textContent = '✦ Haiku complete ✦';
+    } else {
+      G.unlocked[nextLine] = true;
+      G.line = nextLine;
+      G.pool = buildPool(nextLine);
+    }
+  }
+
+  updateUndoButton();
+  refreshLineClasses();
+  for (let i = 0; i < 3; i++) renderLine(i);
+  renderBank();
+}
+
+function updateUndoButton() {
+  const btn = document.getElementById('undoBtn');
+  if (!btn) return;
+  let canUndo = G.undoStack.length > 0 && !G.done;
+  if (canUndo) {
+    const { li, item } = G.undoStack[G.undoStack.length - 1];
+    if (G.used[li] + item.syl > TARGETS[li]) canUndo = false;
+  }
+  btn.disabled = !canUndo;
+  btn.style.opacity = canUndo ? '1' : '0.4';
 }
 
 function refreshPool() {
@@ -756,13 +853,12 @@ function refreshPool() {
 }
 
 function resetGame() {
-  G = { line: 0, placed: [[], [], []], used: [0, 0, 0], pool: buildPool(0), done: false };
-  for (let i = 0; i < 3; i++) {
-    document.getElementById('dz-' + i).className = 'drop-zone' + (i === 0 ? ' current' : ' locked');
-  }
+  G = { line: 0, placed: [[], [], []], used: [0, 0, 0], pool: buildPool(0), done: false, unlocked: [true, false, false], undoStack: [] };
   document.getElementById('compOverlay').classList.remove('show');
+  refreshLineClasses();
   for (let i = 0; i < 3; i++) renderLine(i);
   renderBank();
+  updateUndoButton();
 }
 
 function setupDropZones() {
@@ -775,6 +871,15 @@ function setupDropZones() {
       if (i !== G.line) return;
       const item = G.pool.find(w => w.word === e.dataTransfer.getData('text/plain'));
       if (item) placeWord(item);
+    });
+  }
+}
+
+function setupLineSelection() {
+  for (let i = 0; i < 3; i++) {
+    document.getElementById('hl-' + i).addEventListener('click', e => {
+      if (e.target.classList.contains('chip-placed') || e.target.closest('.chip-placed')) return;
+      selectLine(i);
     });
   }
 }
@@ -921,6 +1026,8 @@ G.pool = buildPool(0);
 for (let i = 0; i < 3; i++) renderLine(i);
 renderBank();
 setupDropZones();
+setupLineSelection();
+updateUndoButton();
 </script>
 </body>
 </html>
