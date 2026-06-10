@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Haiku Garden</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: Georgia, 'Palatino Linotype', 'Book Antiqua', serif;
+  padding: 24px 16px 68px;
+  background: #1c0f07;
+  transition: background 0.5s ease;
+}
+
+@media (prefers-color-scheme: light) {
+  body { background: #f0e8d5; }
+}
+
+/* === BOOK === */
+.book {
+  display: flex;
+  width: 100%;
+  max-width: 880px;
+  min-height: 580px;
+  border-radius: 3px 10px 10px 3px;
+  box-shadow:
+    0 4px 8px rgba(0,0,0,0.15),
+    0 14px 36px rgba(0,0,0,0.3),
+    0 28px 70px rgba(0,0,0,0.35);
+}
+
+.spine {
+  width: 28px;
+  flex-shrink: 0;
+  background: linear-gradient(to right,
+    #2a1a0e 0%, #6b4a30 20%, #8a6040 45%, #6b4a30 70%, #2a1a0e 100%);
+  box-shadow: inset -2px 0 6px rgba(0,0,0,0.4), inset 2px 0 4px rgba(255,255,255,0.06);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.spine-text {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  transform: rotate(180deg);
+  font-size: 10px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: rgba(255,220,160,0.35);
+  user-select: none;
+}
+
+/* === PAGES === */
+.page {
+  flex: 1;
+  padding: 36px 32px;
+  position: relative;
+  overflow: hidden;
+}
+
+.page-left {
+  background: #faf3e0;
+  background-image: repeating-linear-gradient(
+    transparent 0px, transparent 31px,
+    rgba(139,99,67,0.1) 31px, rgba(139,99,67,0.1) 32px
+  );
+  border-right: 1px solid rgba(139,99,67,0.15);
+  border-radius: 3px 0 0 3px;
+  background-size: 100% 32px;
+  background-position: 0 36px;
+}
+
+.page-right {
+  background: #fdf8ec;
+  background-image:
+    radial-gradient(ellipse at 0% 0%, rgba(200,180,140,0.12) 0%, transparent 60%),
+    radial-gradient(ellipse at 100% 100%, rgba(180,150,110,0.1) 0%, transparent 50%);
+  border-radius: 0 10px 10px 0;
+  box-shadow: inset -1px 0 0 rgba(139,99,67,0.1);
+}
+
+/* === PAGE HEADER === */
+.page-header {
+  text-align: center;
+  margin-bottom: 22px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(139,99,67,0.2);
+}
+
+.page-title {
+  font-size: 11px;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: rgba(92,61,46,0.55);
+  font-style: italic;
+}
+
+.page-ornament {
+  font-size: 16px;
+  color: rgba(92,61,46,0.2);
+  margin-top: 4px;
+  letter-spacing: 6px;
+}
+
+/* === HAIKU LINES === */
+.haiku-area { display: flex; flex-direction: column; gap: 28px; }
+.haiku-line { display: flex; flex-direction: column; gap: 6px; }
+.line-meta { display: flex; align-items: center; gap: 8px; }
+
+.line-label {
+  font-size: 10px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: rgba(92,61,46,0.35);
+  min-width: 44px;
+}
+
+.dots { display: flex; gap: 4px; flex: 1; }
+
+.dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: rgba(139,99,67,0.15);
+  transition: background 0.35s ease, transform 0.2s ease;
+}
+.dot.filled { background: #a07850; }
+.dot.filled:last-child { transform: scale(1.15); background: #7a5530; }
+
+.rem-badge { font-size: 10px; color: rgba(92,61,46,0.4); min-width: 20px; text-align: right; }
+.rem-badge span { color: #8b6343; font-weight: bold; }
+
+/* === DROP ZONE === */
+.drop-zone {
+  min-height: 46px;
+  padding: 8px 6px;
+  border-bottom: 2px solid rgba(139,99,67,0.2);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  transition: border-color 0.2s, background 0.2s;
+  position: relative;
+  border-radius: 2px 2px 0 0;
+}
+.drop-zone.current { border-bottom-color: rgba(139,99,67,0.4); }
+.drop-zone.drag-over { background: rgba(139,99,67,0.07); border-bottom-color: #a07850; }
+.drop-zone.locked { opacity: 0.38; pointer-events: none; }
+.drop-zone.done { border-bottom-color: rgba(80,130,80,0.45); }
+
+.drop-placeholder {
+  font-size: 12px;
+  color: rgba(92,61,46,0.28);
+  font-style: italic;
+  pointer-events: none;
+  user-select: none;
+}
+
+/* === WORD CHIPS === */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 5px 11px 5px 9px;
+  background: #fff9f0;
+  border: 1px solid rgba(139,99,67,0.28);
+  border-bottom: 2px solid rgba(139,99,67,0.22);
+  border-radius: 2px;
+  font-family: Georgia, serif;
+  font-size: 14px;
+  color: #3a2618;
+  cursor: grab;
+  user-select: none;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.09), 0 1px 0 rgba(255,255,255,0.7) inset;
+  transition: transform 0.12s, box-shadow 0.12s, background 0.12s;
+}
+.chip:active { cursor: grabbing; }
+.chip:hover { background: #fffcf5; transform: translateY(-2px); box-shadow: 0 3px 8px rgba(0,0,0,0.13); }
+.chip.dragging { opacity: 0.45; transform: scale(0.96); }
+.chip[data-syl="2"] { background: #fff5e8; border-color: rgba(150,110,60,0.3); }
+.chip[data-syl="3"] { background: #fff0d8; border-color: rgba(160,100,50,0.35); }
+.chip[data-syl="4"] { background: #fce8c8; border-color: rgba(170,100,40,0.4); }
+
+.chip-syl { font-size: 9px; color: rgba(92,61,46,0.38); font-style: italic; padding-left: 1px; }
+
+.chip-placed {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 5px 11px 5px 9px;
+  background: #f5ede0;
+  border: 1px solid rgba(139,99,67,0.3);
+  border-bottom: 2px solid rgba(139,99,67,0.25);
+  border-radius: 2px;
+  font-family: Georgia, serif;
+  font-size: 14px;
+  color: #3a2618;
+  cursor: pointer;
+  user-select: none;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.07);
+  transition: background 0.12s, border-color 0.12s;
+}
+.chip-placed:hover { background: #fde8e8; border-color: rgba(180,80,70,0.35); }
+.chip-placed .chip-syl { color: rgba(92,61,46,0.32); }
+
+/* === WORD BANK === */
+.bank-controls { display: flex; gap: 8px; margin-bottom: 16px; }
+
+.btn {
+  padding: 5px 14px;
+  background: transparent;
+  border: 1px solid rgba(92,61,46,0.3);
+  border-radius: 2px;
+  font-family: Georgia, serif;
+  font-size: 11px;
+  letter-spacing: 0.5px;
+  color: #5c3d2e;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+.btn:hover { background: rgba(92,61,46,0.07); border-color: rgba(92,61,46,0.5); }
+
+.word-bank { display: flex; flex-wrap: wrap; gap: 8px; min-height: 100px; align-content: flex-start; }
+
+.bank-status {
+  font-size: 12px;
+  color: rgba(92,61,46,0.5);
+  font-style: italic;
+  margin-top: 14px;
+  line-height: 1.5;
+}
+
+/* === INSTRUCTIONS === */
+.instructions {
+  padding-top: 18px;
+  border-top: 1px solid rgba(92,61,46,0.1);
+  position: absolute;
+  bottom: 36px;
+  left: 32px;
+  right: 32px;
+}
+.instructions p { font-size: 11px; color: rgba(92,61,46,0.38); line-height: 1.7; font-style: italic; }
+
+/* === COMPLETION OVERLAY === */
+.completion-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(250,243,224,0.97);
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 40px;
+  text-align: center;
+  border-radius: 3px 0 0 3px;
+}
+.completion-overlay.show { display: flex; animation: fadeIn 0.6s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
+
+.comp-title { font-size: 10px; letter-spacing: 5px; text-transform: uppercase; color: rgba(92,61,46,0.45); }
+.comp-haiku { font-size: 20px; line-height: 2; color: #3a2618; font-style: italic; white-space: pre-line; }
+.comp-deco { font-size: 18px; color: rgba(92,61,46,0.2); letter-spacing: 8px; }
+.comp-actions { display: flex; gap: 10px; margin-top: 4px; flex-wrap: wrap; justify-content: center; }
+.btn-save { background: rgba(139,99,67,0.07); border-color: rgba(92,61,46,0.4); font-style: italic; }
+.btn-save:hover { background: rgba(139,99,67,0.14); }
+
+/* === THEME PICKER === */
+#themePicker {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  background: rgba(253,246,227,0.9);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(139,99,67,0.28);
+  border-radius: 3px;
+  padding: 5px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  box-shadow: 0 2px 16px rgba(0,0,0,0.16);
+  white-space: nowrap;
+}
+
+#themePicker label {
+  font-family: Georgia, serif;
+  font-size: 10px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  color: rgba(92,61,46,0.55);
+  user-select: none;
+}
+
+#themeSelect {
+  background: transparent;
+  border: none;
+  font-family: Georgia, serif;
+  font-size: 12px;
+  color: #5c3d2e;
+  cursor: pointer;
+  outline: none;
+  padding: 3px 2px;
+}
+
+/* === RESPONSIVE === */
+@media (max-width: 620px) {
+  .book { flex-direction: column; border-radius: 8px; }
+  .spine { width: 100%; height: 20px; }
+  .spine-text { writing-mode: horizontal-tb; transform: none; }
+  .page-left { border-radius: 8px 8px 0 0; border-right: none; border-bottom: 1px solid rgba(139,99,67,0.15); }
+  .page-right { border-radius: 0 0 8px 8px; }
+  .instructions { position: static; margin-top: 20px; }
+  .completion-overlay { border-radius: 8px 8px 0 0; }
+}
+</style>
+</head>
+<body>
+
+<div class="book">
+
+  <!-- LEFT PAGE -->
+  <div class="page page-left">
+    <div class="page-header">
+      <div class="page-title">Your Haiku</div>
+      <div class="page-ornament">✦ ✦ ✦</div>
+    </div>
+
+    <div class="haiku-area" id="haikuArea">
+      <div class="haiku-line">
+        <div class="line-meta">
+          <span class="line-label">Line I</span>
+          <div class="dots" id="dots-0"></div>
+          <span class="rem-badge"><span id="rem-0">5</span></span>
+        </div>
+        <div class="drop-zone current" id="dz-0" data-line="0">
+          <span class="drop-placeholder">drag words here…</span>
+        </div>
+      </div>
+
+      <div class="haiku-line">
+        <div class="line-meta">
+          <span class="line-label">Line II</span>
+          <div class="dots" id="dots-1"></div>
+          <span class="rem-badge"><span id="rem-1">7</span></span>
+        </div>
+        <div class="drop-zone locked" id="dz-1" data-line="1">
+          <span class="drop-placeholder">finish line I first…</span>
+        </div>
+      </div>
+
+      <div class="haiku-line">
+        <div class="line-meta">
+          <span class="line-label">Line III</span>
+          <div class="dots" id="dots-2"></div>
+          <span class="rem-badge"><span id="rem-2">5</span></span>
+        </div>
+        <div class="drop-zone locked" id="dz-2" data-line="2">
+          <span class="drop-placeholder">finish line II first…</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="instructions">
+      <p>Drag words onto a line · click a placed word to remove it</p>
+      <p>5 syllables · 7 syllables · 5 syllables</p>
+    </div>
+
+    <div class="completion-overlay" id="compOverlay">
+      <div class="comp-title">— Haiku Complete —</div>
+      <div class="comp-deco">❧</div>
+      <div class="comp-haiku" id="compText"></div>
+      <div class="comp-deco">❧</div>
+      <div class="comp-actions">
+        <button class="btn btn-save" onclick="exportHaiku()">Save as Image</button>
+        <button class="btn" onclick="resetGame()">Begin Again</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SPINE -->
+  <div class="spine"><span class="spine-text">Haiku Garden</span></div>
+
+  <!-- RIGHT PAGE -->
+  <div class="page page-right">
+    <div class="page-header">
+      <div class="page-title">Word Garden</div>
+      <div class="page-ornament">— 俳句 —</div>
+    </div>
+
+    <div class="bank-controls">
+      <button class="btn" onclick="refreshPool()">New Words</button>
+      <button class="btn" onclick="resetGame()">Start Over</button>
+    </div>
+
+    <div class="word-bank" id="wordBank"></div>
+    <div class="bank-status" id="bankStatus">Choose words for line I · 5 syllables</div>
+  </div>
+
+</div>
+
+<!-- Theme Picker -->
+<div id="themePicker">
+  <label for="themeSelect">Theme</label>
+  <select id="themeSelect" onchange="setTheme(this.value)">
+    <option value="auto">Default (system)</option>
+    <option value="light">Light</option>
+    <option value="dark">Dark</option>
+  </select>
+</div>
+
+<script>
+// ─── WORD DATABASE ────────────────────────────────────────────────────────────
+const WORDS = {
+  1: [
+    'the','a','an','and','or','in','on','at','of','to','by','for',
+    'it','its','my','our','I','this','that','not','no','so','yet','as',
+    'is','are','was','be','but','nor',
+    'sun','moon','rain','snow','wind','frost','mist','dew','ash',
+    'sea','sky','leaf','tree','bird','fish','cloud','wave','lake',
+    'hill','field','path','stream','bud','reed','fern','moss',
+    'bay','glen','grove','peak','vale','crest','shore','bank','gate',
+    'ice','fire','dust','smoke','flame','brine','brook','cove',
+    'cold','warm','still','soft','bright','small','old','new',
+    'far','near','deep','high','low','long','short','white','black',
+    'red','blue','green','gold','pale','bare','clear','gray','sweet',
+    'sharp','slow','fast','free','true','lost','gone','dark','light',
+    'hot','cool','thin','pure','dense','wild','lone','vast','bold',
+    'raw','worn','dim','damp','bleak','crisp','lush',
+    'fly','fall','rise','bloom','flow','glow','drift','float',
+    'shine','fade','sleep','wake','grow','turn','bend','break',
+    'sigh','weep','soar','leap','rest','stir','stay','pass',
+    'call','see','feel','hold','sing','cry','touch',
+    'move','run','walk','stand','come','go','leave','speak',
+    'hear','find','keep','know','bring','give','live',
+    'stone','dream','thought','breath','time','song',
+    'sound','voice','word','peace','joy','grief','love','fear',
+    'hope','heart','soul','dusk','dawn','noon','eve','spring',
+    'years','days','night','day','life','death','world','change',
+    'fall','morn','gust','haze','foam','mud','sap',
+    'bark','cane','vine','log','bough','seed','silt'
+  ],
+  2: [
+    'over','under','into','above','among','around','beyond','across',
+    'below','beside','within','between','during','before','after',
+    'against','along','through','upon','without',
+    'morning','evening','winter','summer','autumn','river','mountain',
+    'forest','ocean','garden','valley','shadow','flower','blossom',
+    'sparrow','cricket','firefly','willow','cherry','maple','lotus',
+    'bamboo','cedar','moonlight','sunlight','starlight','snowfall',
+    'rainfall','dewdrop','raindrop','sunrise','sunset','twilight',
+    'midnight','daybreak','meadow','petal','ripple','ember',
+    'candle','lantern','feather','shoreline','hilltop',
+    'birdsong','rainstorm','snowflake',
+    'golden','silver','ancient','lonely','peaceful','endless','hollow',
+    'hidden','broken','frozen','distant','silent','patient','gentle',
+    'tender','empty','bitter','fallen','faded','crimson','amber',
+    'mossy','barren','darkened','hushed','woven',
+    'sleeping','falling','rising','drifting','singing','flying',
+    'walking','seeking','waiting','turning','fading','passing',
+    'blowing','glowing','flowing','calling','resting','longing',
+    'reaching','touching','waking','leaving','gazing','watching',
+    'breathing','swaying','bending','sighing','floating','growing',
+    'shining','standing','dancing','washing','hiding','melting',
+    'water','temple','silence','stillness','echo','whisper','journey',
+    'season','beauty','darkness','sorrow','wonder','thunder',
+    'branches','pebbles','ashes','ripples','shadows','petals',
+    'embers','doorway','rooftop','teacup','inkstone','heartbeat'
+  ],
+  3: [
+    'beautiful','silently','tenderly','wandering','blossoming',
+    'gathering','scattering','lingering','thundering','returning',
+    'listening','following','unfolding','suddenly','emptiness',
+    'loneliness','solitude','endlessly','quietly','vanishing',
+    'icicles','harmony','mystery','tomorrow','yesterday',
+    'together','remember','forever','glittering','bittersweet',
+    'butterflies','dragonfly','hummingbird','memories','everywhere',
+    'afternoon','whispering','shimmering','glimmering','everything',
+    'anything','forgotten','awakened','horizon','reverence',
+    'radiance','carrying','memory','certainly','hovering',
+    'quivering','murmuring','chrysanthemum','overflowing'
+  ],
+  4: [
+    'eternity','serenity','melancholy','uncertainty','awakening',
+    'everlasting','illuminates','solemnity','tranquility'
+  ]
+};
+
+// ─── GAME STATE ───────────────────────────────────────────────────────────────
+const TARGETS = [5, 7, 5];
+let G = { line: 0, placed: [[], [], []], used: [0, 0, 0], pool: [], done: false };
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function buildPool(lineIdx) {
+  const placed = new Set(G.placed.flat().map(w => w.word));
+  const inPool = new Set();
+  const pool = [];
+  function take(list, n) {
+    const avail = list.filter(w => !placed.has(w) && !inPool.has(w));
+    return shuffle(avail).slice(0, n);
+  }
+  const FUNC = ['the','a','an','and','or','in','on','at','of','it','my','I','is','not','so','this','that','for','by','as'];
+  take(FUNC, 5).forEach(w => { inPool.add(w); pool.push({word: w, syl: 1}); });
+  const nat1 = WORDS[1].filter(w => !FUNC.includes(w));
+  take(nat1, 6).forEach(w => { inPool.add(w); pool.push({word: w, syl: 1}); });
+  take(WORDS[2], 6).forEach(w => { inPool.add(w); pool.push({word: w, syl: 2}); });
+  if (TARGETS[lineIdx] >= 3) take(WORDS[3], 3).forEach(w => { inPool.add(w); pool.push({word: w, syl: 3}); });
+  if (TARGETS[lineIdx] >= 4 && Math.random() > 0.35) take(WORDS[4], 1).forEach(w => { inPool.add(w); pool.push({word: w, syl: 4}); });
+  return shuffle(pool);
+}
+
+// ─── RENDER ──────────────────────────────────────────────────────────────────
+function renderDots(li) {
+  const el = document.getElementById('dots-' + li);
+  el.innerHTML = '';
+  for (let i = 0; i < TARGETS[li]; i++) {
+    const d = document.createElement('div');
+    d.className = 'dot' + (i < G.used[li] ? ' filled' : '');
+    el.appendChild(d);
+  }
+}
+
+function renderLine(li) {
+  const dz = document.getElementById('dz-' + li);
+  dz.innerHTML = '';
+  if (G.placed[li].length === 0) {
+    const ph = document.createElement('span');
+    ph.className = 'drop-placeholder';
+    if (li === G.line) ph.textContent = 'drag words here…';
+    else if (li > G.line) ph.textContent = `finish line ${['I','II','III'][li - 1]} first…`;
+    dz.appendChild(ph);
+  } else {
+    G.placed[li].forEach((item, idx) => {
+      const chip = document.createElement('div');
+      chip.className = 'chip-placed';
+      chip.innerHTML = `${item.word}<span class="chip-syl">${item.syl}</span>`;
+      if (li === G.line) { chip.title = 'Click to remove'; chip.addEventListener('click', () => removeWord(li, idx)); }
+      dz.appendChild(chip);
+    });
+  }
+  document.getElementById('rem-' + li).textContent = TARGETS[li] - G.used[li];
+  renderDots(li);
+}
+
+function renderBank() {
+  const bank = document.getElementById('wordBank');
+  bank.innerHTML = '';
+  if (G.done) return;
+  const rem = TARGETS[G.line] - G.used[G.line];
+  G.pool.filter(w => w.syl <= rem).forEach(item => {
+    const chip = document.createElement('div');
+    chip.className = 'chip';
+    chip.draggable = true;
+    chip.dataset.syl = item.syl;
+    chip.innerHTML = `${item.word}<span class="chip-syl">${item.syl}</span>`;
+    chip.addEventListener('dragstart', e => { e.dataTransfer.setData('text/plain', item.word); setTimeout(() => chip.classList.add('dragging'), 0); });
+    chip.addEventListener('dragend', () => chip.classList.remove('dragging'));
+    chip.addEventListener('click', () => placeWord(item));
+    bank.appendChild(chip);
+  });
+  if (bank.children.length === 0) {
+    const msg = document.createElement('div');
+    msg.style.cssText = 'font-size:12px;color:rgba(92,61,46,0.5);font-style:italic;';
+    msg.textContent = 'No words fit — remove a word to continue.';
+    bank.appendChild(msg);
+  }
+  const remN = TARGETS[G.line] - G.used[G.line];
+  document.getElementById('bankStatus').textContent = `Line ${['I','II','III'][G.line]} · ${remN} syllable${remN !== 1 ? 's' : ''} remaining`;
+}
+
+// ─── ACTIONS ─────────────────────────────────────────────────────────────────
+function placeWord(item) {
+  if (G.done) return;
+  if (item.syl > TARGETS[G.line] - G.used[G.line]) return;
+  G.placed[G.line].push(item);
+  G.used[G.line] += item.syl;
+  const idx = G.pool.findIndex(w => w.word === item.word);
+  if (idx !== -1) G.pool.splice(idx, 1);
+  renderLine(G.line);
+  if (G.used[G.line] === TARGETS[G.line]) advanceLine(); else renderBank();
+}
+
+function removeWord(li, idx) {
+  if (li !== G.line) return;
+  const item = G.placed[li][idx];
+  G.placed[li].splice(idx, 1);
+  G.used[li] -= item.syl;
+  G.pool = shuffle([...G.pool, item]);
+  renderLine(li);
+  renderBank();
+}
+
+function advanceLine() {
+  const dz = document.getElementById('dz-' + G.line);
+  dz.classList.remove('current');
+  dz.classList.add('done');
+  if (G.line < 2) {
+    G.line++;
+    const next = document.getElementById('dz-' + G.line);
+    next.classList.remove('locked');
+    next.classList.add('current');
+    G.pool = buildPool(G.line);
+    renderLine(G.line);
+    renderBank();
+  } else {
+    G.done = true;
+    const lines = G.placed.map(ln => ln.map(w => w.word).join(' '));
+    document.getElementById('compText').textContent = lines.join('\n');
+    document.getElementById('compOverlay').classList.add('show');
+    document.getElementById('bankStatus').textContent = '✦ Haiku complete ✦';
+  }
+}
+
+function refreshPool() {
+  if (G.done) return;
+  G.pool = buildPool(G.line);
+  renderBank();
+}
+
+function resetGame() {
+  G = { line: 0, placed: [[], [], []], used: [0, 0, 0], pool: buildPool(0), done: false };
+  for (let i = 0; i < 3; i++) {
+    document.getElementById('dz-' + i).className = 'drop-zone' + (i === 0 ? ' current' : ' locked');
+  }
+  document.getElementById('compOverlay').classList.remove('show');
+  for (let i = 0; i < 3; i++) renderLine(i);
+  renderBank();
+}
+
+function setupDropZones() {
+  for (let i = 0; i < 3; i++) {
+    const dz = document.getElementById('dz-' + i);
+    dz.addEventListener('dragover', e => { if (i !== G.line) return; e.preventDefault(); dz.classList.add('drag-over'); });
+    dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
+    dz.addEventListener('drop', e => {
+      e.preventDefault(); dz.classList.remove('drag-over');
+      if (i !== G.line) return;
+      const item = G.pool.find(w => w.word === e.dataTransfer.getData('text/plain'));
+      if (item) placeWord(item);
+    });
+  }
+}
+
+// ─── THEME ───────────────────────────────────────────────────────────────────
+const THEMES = {
+  light: '#f0e8d5',
+  dark:  '#3a2618'
+};
+
+function setTheme(val) {
+  let bg;
+  if (val === 'auto') {
+    bg = window.matchMedia('(prefers-color-scheme: dark)').matches ? THEMES.dark : THEMES.light;
+  } else {
+    bg = THEMES[val];
+  }
+  document.body.style.background = bg;
+}
+
+window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+  if (document.getElementById('themeSelect').value === 'auto') setTheme('auto');
+});
+
+// ─── EXPORT ──────────────────────────────────────────────────────────────────
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.arcTo(x + w, y, x + w, y + r, r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+  ctx.lineTo(x + r, y + h);
+  ctx.arcTo(x, y + h, x, y + h - r, r);
+  ctx.lineTo(x, y + r);
+  ctx.arcTo(x, y, x + r, y, r);
+  ctx.closePath();
+}
+
+function exportHaiku() {
+  // 1080×1080 — symmetric layout (1.5× scale of 720 design):
+  // outer margin 255px top/bottom, rule-to-haiku gap 66px each side
+  const S = 1080;
+  const c = document.createElement('canvas');
+  c.width = S; c.height = S;
+  const ctx = c.getContext('2d');
+
+  // Parchment background
+  const bg = ctx.createLinearGradient(0, 0, S, S);
+  bg.addColorStop(0, '#fef8e8');
+  bg.addColorStop(0.5, '#faf2d8');
+  bg.addColorStop(1, '#f4eacc');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, S, S);
+
+  // Paper grain
+  for (let i = 0; i < 20000; i++) {
+    const x = Math.random() * S, y = Math.random() * S;
+    const v = 120 + Math.random() * 55;
+    ctx.fillStyle = `rgba(${v + 36},${v + 8},${v - 22},0.022)`;
+    ctx.fillRect(x, y, 1, 1);
+  }
+
+  // Outer border
+  ctx.strokeStyle = 'rgba(92,61,46,0.4)';
+  ctx.lineWidth = 2;
+  roundRect(ctx, 33, 33, S - 66, S - 66, 9);
+  ctx.stroke();
+
+  // Inner border
+  ctx.strokeStyle = 'rgba(92,61,46,0.14)';
+  ctx.lineWidth = 1.5;
+  roundRect(ctx, 50, 50, S - 100, S - 100, 6);
+  ctx.stroke();
+
+  // Corner ornaments
+  ctx.font = '20px Georgia';
+  ctx.fillStyle = 'rgba(92,61,46,0.28)';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  [[63, 63], [S - 63, 63], [63, S - 63], [S - 63, S - 63]].forEach(([x, y]) => ctx.fillText('✦', x, y));
+
+  // ── LOGO  (~286px from top) ──
+  // Haiku block is centered at y=551 (shifted 11px above canvas center to
+  // visually balance 45px Georgia's cap-height ~31px vs descender ~10px).
+  // Equal visual gaps of 48px between rules and haiku text edges.
+  ctx.textBaseline = 'alphabetic';
+  ctx.font = 'italic bold 33px Georgia';
+  ctx.fillStyle = 'rgba(72,44,26,0.88)';
+  ctx.textAlign = 'center';
+  ctx.fillText('Haiku Garden', S / 2, 286);
+
+  // Japanese subtitle  (+33px)
+  ctx.font = '21px Georgia';
+  ctx.fillStyle = 'rgba(92,61,46,0.32)';
+  ctx.fillText('俳句', S / 2, 319);
+
+  // Top rule  (+39px) — 48px visual gap above first haiku line cap-height
+  ctx.strokeStyle = 'rgba(92,61,46,0.2)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(S * 0.30, 358);
+  ctx.lineTo(S * 0.70, 358);
+  ctx.stroke();
+
+  // ── HAIKU LINES (visual center at 540, baseline center at 551, 114px apart) ──
+  const lines = G.placed.map(ln => ln.map(w => w.word).join(' '));
+  ctx.font = 'italic 45px Georgia';
+  ctx.fillStyle = '#3a2618';
+  [437, 551, 665].forEach((y, i) => ctx.fillText(lines[i], S / 2, y));
+
+  // Bottom rule  (48px visual gap below last haiku line descender)
+  ctx.strokeStyle = 'rgba(92,61,46,0.18)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(S * 0.30, 723);
+  ctx.lineTo(S * 0.70, 723);
+  ctx.stroke();
+
+  // Fleuron  (+39px, mirrors 俳句 spacing)
+  ctx.font = '27px Georgia';
+  ctx.fillStyle = 'rgba(92,61,46,0.26)';
+  ctx.fillText('❧', S / 2, 762);
+
+  // ── URL  (+33px, mirrors logo spacing — ~285px from bottom) ──
+  ctx.font = 'italic 23px Georgia';
+  ctx.fillStyle = 'rgba(72,44,26,0.70)';
+  ctx.fillText('haikugarden.app', S / 2, 795);
+
+  c.toBlob(blob => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.download = 'my-haiku.png';
+    a.href = url;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, 'image/png');
+}
+
+// ─── INIT ─────────────────────────────────────────────────────────────────────
+setTheme('auto');
+G.pool = buildPool(0);
+for (let i = 0; i < 3; i++) renderLine(i);
+renderBank();
+setupDropZones();
+</script>
+</body>
+</html>
