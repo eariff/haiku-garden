@@ -693,9 +693,9 @@ function roundRect(ctx, x, y, w, h, r) {
 }
 
 function exportHaiku() {
-  // 720×720 — symmetric layout:
-  // outer margin 170px top/bottom, rule-to-haiku gap 44px each side
-  const S = 720;
+  // 1080×1080 — symmetric layout (1.5× scale of 720 design):
+  // outer margin 255px top/bottom, rule-to-haiku gap 66px each side
+  const S = 1080;
   const c = document.createElement('canvas');
   c.width = S; c.height = S;
   const ctx = c.getContext('2d');
@@ -709,7 +709,7 @@ function exportHaiku() {
   ctx.fillRect(0, 0, S, S);
 
   // Paper grain
-  for (let i = 0; i < 9000; i++) {
+  for (let i = 0; i < 20000; i++) {
     const x = Math.random() * S, y = Math.random() * S;
     const v = 120 + Math.random() * 55;
     ctx.fillStyle = `rgba(${v + 36},${v + 8},${v - 22},0.022)`;
@@ -718,66 +718,66 @@ function exportHaiku() {
 
   // Outer border
   ctx.strokeStyle = 'rgba(92,61,46,0.4)';
-  ctx.lineWidth = 1.5;
-  roundRect(ctx, 22, 22, S - 44, S - 44, 6);
+  ctx.lineWidth = 2;
+  roundRect(ctx, 33, 33, S - 66, S - 66, 9);
   ctx.stroke();
 
   // Inner border
   ctx.strokeStyle = 'rgba(92,61,46,0.14)';
-  ctx.lineWidth = 1;
-  roundRect(ctx, 33, 33, S - 66, S - 66, 4);
+  ctx.lineWidth = 1.5;
+  roundRect(ctx, 50, 50, S - 100, S - 100, 6);
   ctx.stroke();
 
   // Corner ornaments
-  ctx.font = '13px Georgia';
+  ctx.font = '20px Georgia';
   ctx.fillStyle = 'rgba(92,61,46,0.28)';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  [[42, 42], [S - 42, 42], [42, S - 42], [S - 42, S - 42]].forEach(([x, y]) => ctx.fillText('✦', x, y));
+  [[63, 63], [S - 63, 63], [63, S - 63], [S - 63, S - 63]].forEach(([x, y]) => ctx.fillText('✦', x, y));
 
-  // ── LOGO  (170px from top) ──
+  // ── LOGO  (255px from top) ──
   ctx.textBaseline = 'alphabetic';
-  ctx.font = 'italic bold 22px Georgia';
+  ctx.font = 'italic bold 33px Georgia';
   ctx.fillStyle = 'rgba(72,44,26,0.88)';
   ctx.textAlign = 'center';
-  ctx.fillText('Haiku Garden', S / 2, 170);
+  ctx.fillText('Haiku Garden', S / 2, 255);
 
-  // Japanese subtitle  (+22px)
-  ctx.font = '14px Georgia';
+  // Japanese subtitle  (+33px)
+  ctx.font = '21px Georgia';
   ctx.fillStyle = 'rgba(92,61,46,0.32)';
-  ctx.fillText('俳句', S / 2, 192);
+  ctx.fillText('俳句', S / 2, 288);
 
-  // Top rule  (+26px) — 44px above first haiku line
+  // Top rule  (+39px) — 66px above first haiku line
   ctx.strokeStyle = 'rgba(92,61,46,0.2)';
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(S * 0.30, 218);
-  ctx.lineTo(S * 0.70, 218);
+  ctx.moveTo(S * 0.30, 327);
+  ctx.lineTo(S * 0.70, 327);
   ctx.stroke();
 
-  // ── HAIKU LINES (centered at S/2=360, 98px apart) ──
+  // ── HAIKU LINES (centered at S/2=540, 147px apart) ──
   const lines = G.placed.map(ln => ln.map(w => w.word).join(' '));
-  ctx.font = 'italic 30px Georgia';
+  ctx.font = 'italic 45px Georgia';
   ctx.fillStyle = '#3a2618';
-  [262, 360, 458].forEach((y, i) => ctx.fillText(lines[i], S / 2, y));
+  [393, 540, 687].forEach((y, i) => ctx.fillText(lines[i], S / 2, y));
 
-  // Bottom rule  (44px below last haiku line)
+  // Bottom rule  (66px below last haiku line)
   ctx.strokeStyle = 'rgba(92,61,46,0.18)';
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(S * 0.30, 502);
-  ctx.lineTo(S * 0.70, 502);
+  ctx.moveTo(S * 0.30, 753);
+  ctx.lineTo(S * 0.70, 753);
   ctx.stroke();
 
-  // Fleuron  (+26px, mirrors 俳句 spacing)
-  ctx.font = '18px Georgia';
+  // Fleuron  (+39px, mirrors 俳句 spacing)
+  ctx.font = '27px Georgia';
   ctx.fillStyle = 'rgba(92,61,46,0.26)';
-  ctx.fillText('❧', S / 2, 528);
+  ctx.fillText('❧', S / 2, 792);
 
-  // ── URL  (+22px, mirrors logo spacing — 170px from bottom) ──
-  ctx.font = 'italic 15px Georgia';
+  // ── URL  (+33px, mirrors logo spacing — 255px from bottom) ──
+  ctx.font = 'italic 23px Georgia';
   ctx.fillStyle = 'rgba(72,44,26,0.70)';
-  ctx.fillText('haikugarden.app', S / 2, 550);
+  ctx.fillText('haikugarden.app', S / 2, 825);
 
   c.toBlob(blob => {
     const url = URL.createObjectURL(blob);
